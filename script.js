@@ -1,9 +1,13 @@
-import { auth, db } from './firebase-config.js';
+import { initFirebase, saveFirebaseConfig, parseFirebaseConfig, clearFirebaseConfig } from './firebase-config.js';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp, getDocs, writeBatch } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+let auth = null;
+let db = null;
+let authStarted = false;
 
 const state = {
   user: null,
@@ -27,6 +31,40 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 const path = (name) => collection(db, 'users', state.user.uid, name);
 const dpath = (name, id) => doc(db, 'users', state.user.uid, name, id);
+
+function showSetupScreen(message = '') {
+  const setup = $('#setupScreen');
+  const authScreen = $('#authScreen');
+  const appShell = $('#app');
+  if (setup) setup.hidden = false;
+  if (authScreen) { authScreen.hidden = true; authScreen.style.display = 'none'; }
+  if (appShell) { appShell.hidden = true; appShell.style.display = 'none'; }
+  if (message && $('#setupMessage')) $('#setupMessage').textContent = message;
+}
+
+function showAuthScreen() {
+  const setup = $('#setupScreen');
+  const authScreen = $('#authScreen');
+  const appShell = $('#app');
+  if (setup) setup.hidden = true;
+  if (authScreen) { authScreen.hidden = false; authScreen.style.display = 'grid'; }
+  if (appShell) { appShell.hidden = true; appShell.style.display = 'none'; }
+}
+
+function bootFirebase(config = null) {
+  try {
+    const services = initFirebase(config || undefined);
+    if (!services.configured) {
+      showSetupScreen();
+      return;
+    }
+    auth = services.auth;
+    db = services.db;
+    startAuthListener();
+  } catch (err) {
+    showSetupScreen(err.message);
+  }
+}
 
 function toast(msg) {
   const t = $('#toast');
@@ -56,11 +94,29 @@ function sourceShortTitle(source) {
   return citation.length > 110 ? citation.slice(0, 110) + '…' : citation;
 }
 
+
+$('#saveFirebaseConfigBtn')?.addEventListener('click', () => {
+  try {
+    const config = parseFirebaseConfig($('#firebaseConfigInput').value);
+    saveFirebaseConfig(config);
+    bootFirebase(config);
+    showAuthScreen();
+    toast('Firebase connected. Create your account to begin.');
+  } catch (err) {
+    $('#setupMessage').textContent = err.message;
+  }
+});
+
+$('#useDemoBtn')?.addEventListener('click', () => {
+  $('#setupMessage').textContent = 'Demo mode is not enabled in this blank template. Connect Firebase to use the dashboard.';
+});
+
 $('#signupBtn').onclick = async () => authAction('signup');
 $('#loginBtn').onclick = async () => authAction('login');
 $('#logoutBtn').onclick = () => signOut(auth);
 
 async function authAction(mode) {
+  if (!auth) return showSetupScreen('Connect Firebase before signing in.');
   const email = $('#email').value.trim();
   const pass = $('#password').value;
   $('#authMessage').textContent = '';
@@ -72,32 +128,37 @@ async function authAction(mode) {
   }
 }
 
-onAuthStateChanged(auth, async (user) => {
-  state.unsub.forEach(u => u());
-  state.unsub = [];
-  state.user = user;
-  const authScreen = $('#authScreen');
-  const appShell = $('#app');
-  if (user) {
-    authScreen.hidden = true;
-    authScreen.style.display = 'none';
-    appShell.hidden = false;
-    appShell.style.display = 'grid';
-    $('#userEmail').textContent = user.email;
-    try {
-      await seedChapters();
-      listenAll();
-    } catch (err) {
-      toast(err.message);
-      console.error(err);
+function startAuthListener() {
+  if (authStarted || !auth) return;
+  authStarted = true;
+  onAuthStateChanged(auth, async (user) => {
+    state.unsub.forEach(u => u());
+    state.unsub = [];
+    state.user = user;
+    const authScreen = $('#authScreen');
+    const appShell = $('#app');
+    const setup = $('#setupScreen');
+    if (user) {
+      if (setup) setup.hidden = true;
+      authScreen.hidden = true;
+      authScreen.style.display = 'none';
+      appShell.hidden = false;
+      appShell.style.display = 'grid';
+      $('#userEmail').textContent = user.email;
+      try {
+        await seedChapters();
+        listenAll();
+      } catch (err) {
+        toast(err.message);
+        console.error(err);
+      }
+    } else {
+      showAuthScreen();
     }
-  } else {
-    authScreen.hidden = false;
-    authScreen.style.display = 'grid';
-    appShell.hidden = true;
-    appShell.style.display = 'none';
-  }
-});
+  });
+}
+
+bootFirebase();
 
 async function seedChapters() {
   const snap = await getDocs(path('chapters'));

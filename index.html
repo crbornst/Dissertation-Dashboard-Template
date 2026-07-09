@@ -9,7 +9,46 @@
 <body>
   <div id="toast" class="toast" hidden></div>
 
-  <section id="authScreen" class="auth-screen">
+
+  <section id="setupScreen" class="auth-screen setup-screen">
+    <div class="setup-card">
+      <div class="brand-mark">🎓</div>
+      <h1>Set Up My Dissertation Dashboard</h1>
+      <p class="subtitle">Connect this blank template to your own Firebase project.</p>
+      <div class="setup-steps">
+        <span class="step-pill active">1. Firebase</span>
+        <span class="step-pill">2. Account</span>
+        <span class="step-pill">3. Start working</span>
+      </div>
+      <div class="setup-help">
+        <p><strong>Before you paste your config:</strong></p>
+        <ol>
+          <li>Create a Firebase project.</li>
+          <li>Enable Authentication → Email/Password.</li>
+          <li>Create a Firestore Database.</li>
+          <li>Register a Web App and copy the Firebase config.</li>
+        </ol>
+      </div>
+      <label class="full setup-label">Paste your Firebase config object
+        <textarea id="firebaseConfigInput" placeholder='const firebaseConfig = {
+  apiKey: "...",
+  authDomain: "...",
+  projectId: "...",
+  storageBucket: "...",
+  messagingSenderId: "...",
+  appId: "..."
+};'></textarea>
+      </label>
+      <div class="auth-actions">
+        <button id="saveFirebaseConfigBtn" class="primary">Save Firebase Setup</button>
+        <button id="useDemoBtn" class="secondary" type="button">Preview without Firebase</button>
+      </div>
+      <p id="setupMessage" class="message"></p>
+      <p class="hint">Your Firebase config is saved only in this browser. Users should connect their own Firebase project before storing real dissertation data.</p>
+    </div>
+  </section>
+
+  <section id="authScreen" class="auth-screen" hidden>
     <div class="auth-card">
       <div class="brand-mark">🎓</div>
       <h1>My Dissertation Dashboard</h1>
